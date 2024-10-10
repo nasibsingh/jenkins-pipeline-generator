@@ -10,6 +10,9 @@ def generate_pipeline():
     build_command_2 = input("Enter the command2 to run in the Build stage: ")
     source_location = input("Enter the source location for the AWS S3 cp command: ")
 
+    # Ask if this is a production-level pipeline
+    is_production = input("Is this a production-level pipeline? (yes/no): ").lower()
+
     # Define the template for the pipeline script
     pipeline_template = f"""
 import groovy.json.JsonOutput
@@ -72,7 +75,7 @@ pipeline {{
                     // Update the current stage for tracking
                     currentStage = 'Build'
                 }}
-                // Execute the customized build command
+                // Execute the customized build commands
                 sh '{build_command_1}'
                 sh '{build_command_2}'
             }}
@@ -84,6 +87,17 @@ pipeline {{
                     // Update the current stage for tracking
                     currentStage = 'Deploy'
                 }}
+    """
+    
+    # If it's a production pipeline, add a prompt for confirmation in the Deploy stage
+    if is_production == "yes":
+        pipeline_template += """
+                // Add a confirmation input prompt for production deployments
+                input(message: 'Do you want to deploy the image?', ok: 'Deploy')
+        """
+    
+    # Continue with the deployment steps
+    pipeline_template += f"""
                 // Deploy the build artifacts to S3 using the provided bucket name and source location
                 sh "aws s3 cp {source_location} s3://{s3_bucket}/ --recursive"
             }}
@@ -109,7 +123,7 @@ pipeline {{
             // Send failure message to Slack with the failed stage
             slackSend channel: '{slack_channel}',
                       color: COLOR_MAP['FAILURE'], // Red color for failure
-                      message: "FAILURE: ${{JOB_NAME}} Build ${{env.BUILD_NUMBER}} failed in *{{currentStage}}* stage by ${{BUILD_USER}}"
+                      message: "FAILURE: ${{JOB_NAME}} Build ${{env.BUILD_NUMBER}} failed in *${{currentStage}}* stage by ${{BUILD_USER}}"
         }}
     }}
 }}
