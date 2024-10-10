@@ -11,25 +11,25 @@ def generate_pipeline():
     source_location = input("Enter the source location for the AWS S3 cp command: ")
 
     # Define the template for the pipeline script
-    pipeline_template = f\"\"\"
-    pipeline {{
-        agent any
+    pipeline_template = f"""
+pipeline {{
+    agent any
 
-        stages {{
-            stage('Build') {{
-                steps {{
-                    sh '{build_command_1}'
-                    sh '{build_command_2}'
-                }}
+    stages {{
+        stage('Build') {{
+            steps {{
+                sh '{build_command_1}'
+                sh '{build_command_2}'
             }}
-            stage('Deploy') {{
-                steps {{
-                    sh "aws s3 cp {source_location} s3://{s3_bucket}/ --recursive"
-                }}
+        }}
+        stage('Deploy') {{
+            steps {{
+                sh "aws s3 cp {source_location} s3://{s3_bucket}/ --recursive"
             }}
         }}
     }}
-    \"\"\"
+}}
+"""
 
     # Write to file
     with open(f"{pipeline_name}_pipeline.groovy", "w") as file:
