@@ -1,41 +1,45 @@
+import tkinter as tk
+from tkinter import messagebox
 import os
-import sys
 
 def run_frontend_generator():
     """Runs the frontend pipeline generator script."""
-    os.system("python3 frontend-pipeline-generator.py")
+    os.system("python3 /Users/memorres/Desktop/pipeline-generator/frontend-pipeline-generator.py")
 
 def run_backend_generator():
     """Runs the backend pipeline generator script."""
-    os.system("python3 backend-pipeline-generator.py")
+    os.system("python3 /Users/memorres/Desktop/pipeline-generator/backend-pipeline-generator.py")
 
-def main():
-    attempts = 0
-    max_attempts = 3
+def generate_pipeline(selection):
+    if selection == "1":
+        run_frontend_generator()
+        messagebox.showinfo("Success", "Frontend Pipeline Generated Successfully!")
+    elif selection == "2":
+        run_frontend_generator()
+        messagebox.showinfo("Success", "Backend Pipeline Generated Successfully!")
+    else:
+        messagebox.showerror("Error", "Invalid selection. Please choose either 1 (Frontend) or 2 (Backend).")
 
-    while attempts < max_attempts:
-        # Ask the user which pipeline they want to create
-        print("Which pipeline do you want to generate?")
-        print("1. Frontend Pipeline")
-        print("2. Backend Pipeline")
+def submit_choice():
+    choice = entry.get()
+    generate_pipeline(choice)
 
-        choice = input("Enter 1 for Frontend or 2 for Backend: ")
+# GUI setup
 
-        if choice == "1":
-            print("Generating Frontend Pipeline...")
-            run_backend_generator()
-            break
-        elif choice == "2":
-            print("Generating Backend Pipeline...")
-            run_backend_generator()
-            break
-        else:
-            attempts +=1
-            print(f"Invalid input. You have {max_attempts - attempts} attempts left. Please enter 1 or 2.")
-    
-    if attempts == max_attempts:
-        print("Too many invalid attempts. Exiting program.")
-        sys.exit(1)
+root = tk.Tk()
+root.title("Pipeline Generator")
 
-if __name__ == "__main__":
-    main()
+# Instruction Label
+label = tk.Label(root, text="Which pipeline do you want to generate?\n1. Frontend Pipeline\n2. Backend Pipeline")
+label.pack(pady=10)
+
+# Input Entry
+entry = tk.Entry(root)
+entry.pack(pady=5)
+
+# Submit Button
+submit_button = tk.Button(root, text="Submit", command=submit_choice)
+submit_button.pack(pady=10)
+
+# Run the GUI loop
+root.mainloop()
