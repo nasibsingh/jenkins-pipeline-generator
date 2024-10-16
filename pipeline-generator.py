@@ -1,191 +1,253 @@
 import tkinter as tk
-from tkinter import messagebox
-import logging
-import subprocess
+from tkinter import simpledialog, messagebox
 
-# Set up logging
-logging.basicConfig(filename='pipeline_generator.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Function to preview the input data and ask for confirmation
+def preview_and_confirm(pipeline_name, inputs, generate_function):
+    preview_message = "\n".join([f"{key}: {value}" for key, value in inputs.items()])
+    
+    confirm = messagebox.askyesno("Confirm Inputs", f"Please review the provided inputs:\n\n{preview_message}\n\nDo you want to proceed?")
+    
+    if confirm:
+        # If confirmed, call the pipeline generation function
+        generate_function(pipeline_name, inputs)
+    else:
+        # If not confirmed, restart the input process
+        if "frontend" in pipeline_name.lower():
+            generate_frontend_pipeline()
+        else:
+            generate_backend_pipeline()
 
-# Function to run the frontend script with user inputs
-def run_frontend_script(pipeline_name, repository_url, default_branch, credentials_id, slack_channel, s3_bucket, build_command_1, build_command_2, source_location):
-    try:
-        logging.info(f"Running frontend pipeline script for: {pipeline_name}")
-        subprocess.run([
-            "python3", "./frontend-pipeline-generator-v2.py", pipeline_name, repository_url, default_branch, credentials_id,
-            slack_channel, s3_bucket, build_command_1, build_command_2, source_location
-        ], check=True)
-        messagebox.showinfo("Pipeline", f"Frontend pipeline {pipeline_name} executed successfully!")
-    except subprocess.CalledProcessError as e:
-        logging.error(f"Error executing frontend script: {e}")
-        messagebox.showerror("Error", "Error running frontend pipeline script")
+# Function to generate frontend pipeline script
+def generate_frontend_pipeline():
+    pipeline_name = simpledialog.askstring("Input", "Enter the pipeline name:")
+    inputs = {
+        "Repository URL": simpledialog.askstring("Input", "Enter the Git repository URL:"),
+        "Default Branch": simpledialog.askstring("Input", "Enter the default branch name:"),
+        "Credentials ID": simpledialog.askstring("Input", "Enter the Jenkins credentials ID for Git:"),
+        "Slack Channel": simpledialog.askstring("Input", "Enter the Slack channel name:"),
+        "S3 Bucket": simpledialog.askstring("Input", "Enter the S3 bucket name for deployment:"),
+        "Build Command 1": simpledialog.askstring("Input", "Enter the command1 to run in the Build stage:"),
+        "Build Command 2": simpledialog.askstring("Input", "Enter the command2 to run in the Build stage:"),
+        "Source Location": simpledialog.askstring("Input", "Enter the source location for the AWS S3 cp command:"),
+        "Is Production": simpledialog.askstring("Input", "Is this a production-level pipeline? (yes/no)").lower()
+    }
 
-# Function to run the backend script with user inputs
-def run_backend_script(pipeline_name, repository_url, default_branch, credentials_id, slack_channel, build_command_1, build_command_2, image_name, account_id, region, cluster_name, service_name, task_name, task_definition_file_name):
-    try:
-        logging.info(f"Running backend pipeline script for: {pipeline_name}")
-        subprocess.run([
-            "python3", "./backend-pipeline-generator.py", pipeline_name, repository_url, default_branch, credentials_id,
-            slack_channel, build_command_1, build_command_2, image_name, account_id, region, cluster_name, service_name, task_name,
-            task_definition_file_name
-        ], check=True)
-        messagebox.showinfo("Pipeline", f"Backend pipeline {pipeline_name} executed successfully!")
-    except subprocess.CalledProcessError as e:
-        logging.error(f"Error executing backend script: {e}")
-        messagebox.showerror("Error", "Error running backend pipeline script")
+    preview_and_confirm(pipeline_name, inputs, generate_frontend_pipeline_script)
 
-# Function to handle frontend pipeline inputs
-def frontend_pipeline():
-    def submit():
-        pipeline_name = entry_pipeline_name.get()
-        repository_url = entry_repository_url.get()
-        default_branch = entry_default_branch.get()
-        credentials_id = entry_credentials_id.get()
-        slack_channel = entry_slack_channel.get()
-        s3_bucket = entry_s3_bucket.get()
-        build_command_1 = entry_build_command_1.get()
-        build_command_2 = entry_build_command_2.get()
-        source_location = entry_source_location.get()
+# Function to generate backend pipeline script
+def generate_backend_pipeline():
+    pipeline_name = simpledialog.askstring("Input", "Enter the pipeline name:")
+    inputs = {
+        "Repository URL": simpledialog.askstring("Input", "Enter the Git repository URL:"),
+        "Default Branch": simpledialog.askstring("Input", "Enter the default branch name:"),
+        "Credentials ID": simpledialog.askstring("Input", "Enter the Jenkins credentials ID for Git:"),
+        "Slack Channel": simpledialog.askstring("Input", "Enter the Slack channel name:"),
+        "Build Command 1": simpledialog.askstring("Input", "Enter the command1 to run in the Build stage:"),
+        "Build Command 2": simpledialog.askstring("Input", "Enter the command2 to run in the Build stage:"),
+        "Docker Image Name": simpledialog.askstring("Input", "Enter the Docker image name:"),
+        "Account ID": simpledialog.askstring("Input", "Enter the AWS account ID:"),
+        "Region": simpledialog.askstring("Input", "Enter the AWS region:"),
+        "ECS Cluster Name": simpledialog.askstring("Input", "Enter the ECS cluster name:"),
+        "ECS Service Name": simpledialog.askstring("Input", "Enter the ECS service name:"),
+        "Task Name": simpledialog.askstring("Input", "Enter the ECS task name:"),
+        "Task Definition File": simpledialog.askstring("Input", "Enter the task definition file name:"),
+        "Is Production": simpledialog.askstring("Input", "Is this a production-level pipeline? (yes/no)").lower()
+    }
 
-        run_frontend_script(pipeline_name, repository_url, default_branch, credentials_id, slack_channel, s3_bucket, build_command_1, build_command_2, source_location)
-        pipeline_window.destroy()
+    preview_and_confirm(pipeline_name, inputs, generate_backend_pipeline_script)
 
-    pipeline_window = tk.Toplevel(root)
-    pipeline_window.title("Frontend Pipeline")
+# Function to actually generate the frontend pipeline script after confirmation
+def generate_frontend_pipeline_script(pipeline_name, inputs):
+    pipeline_template = f"""
+import groovy.json.JsonOutput
 
-    # Input fields for frontend pipeline
-    tk.Label(pipeline_window, text="Pipeline Name:").grid(row=0, column=0)
-    entry_pipeline_name = tk.Entry(pipeline_window)
-    entry_pipeline_name.grid(row=0, column=1)
+def COLOR_MAP = [
+    'SUCCESS': 'good',
+    'ALERT': 'warning',
+    'FAILURE': 'danger'
+]
 
-    tk.Label(pipeline_window, text="Repository URL:").grid(row=1, column=0)
-    entry_repository_url = tk.Entry(pipeline_window)
-    entry_repository_url.grid(row=1, column=1)
+// Function to get the user who triggered the build
+def getBuildUser() {{
+    def userCause = currentBuild.rawBuild.getCause(Cause.UserIdCause)
+    return userCause ? userCause.getUserId() : "Automated/Unknown"
+}}
 
-    tk.Label(pipeline_window, text="Default Branch:").grid(row=2, column=0)
-    entry_default_branch = tk.Entry(pipeline_window)
-    entry_default_branch.grid(row=2, column=1)
+pipeline {{
+    agent any
 
-    tk.Label(pipeline_window, text="Credentials ID:").grid(row=3, column=0)
-    entry_credentials_id = tk.Entry(pipeline_window)
-    entry_credentials_id.grid(row=3, column=1)
+    environment {{
+        BUILD_USER = ''
+    }}
 
-    tk.Label(pipeline_window, text="Slack Channel:").grid(row=4, column=0)
-    entry_slack_channel = tk.Entry(pipeline_window)
-    entry_slack_channel.grid(row=4, column=1)
+    parameters {{
+        gitParameter branchFilter: 'origin/(.*)', defaultValue: '{inputs['Default Branch']}', name: 'BRANCH', type: 'PT_BRANCH'
+    }}
 
-    tk.Label(pipeline_window, text="S3 Bucket:").grid(row=5, column=0)
-    entry_s3_bucket = tk.Entry(pipeline_window)
-    entry_s3_bucket.grid(row=5, column=1)
+    stages {{
+        stage('Initialise') {{
+            steps {{
+                script {{
+                    BUILD_USER = getBuildUser()
+                }}
+                slackSend channel: '{inputs['Slack Channel']}',
+                          color: 'warning',
+                          message: "${{JOB_NAME}} Build Initiated by ${{BUILD_USER}}"
+            }}
+        }}
+        
+        stage('Clone') {{
+            steps {{
+                git branch: "${{params.BRANCH}}", credentialsId: '{inputs['Credentials ID']}', url: '{inputs['Repository URL']}'
+            }}
+        }}
 
-    tk.Label(pipeline_window, text="Build Command 1:").grid(row=6, column=0)
-    entry_build_command_1 = tk.Entry(pipeline_window)
-    entry_build_command_1.grid(row=6, column=1)
+        stage('Build') {{
+            steps {{
+                sh '{inputs['Build Command 1']}'
+                sh '{inputs['Build Command 2']}'
+            }}
+        }}
 
-    tk.Label(pipeline_window, text="Build Command 2:").grid(row=7, column=0)
-    entry_build_command_2 = tk.Entry(pipeline_window)
-    entry_build_command_2.grid(row=7, column=1)
+        stage('Deploy') {{
+            steps {{
+                sh "aws s3 cp {inputs['Source Location']} s3://{inputs['S3 Bucket']}/ --recursive"
+            }}
+        }}
+    }}
 
-    tk.Label(pipeline_window, text="Source Location:").grid(row=8, column=0)
-    entry_source_location = tk.Entry(pipeline_window)
-    entry_source_location.grid(row=8, column=1)
+    post {{
+        success {{
+            slackSend channel: '{inputs['Slack Channel']}', color: COLOR_MAP['SUCCESS'], message: "SUCCESS: ${{JOB_NAME}} Build succeeded"
+        }}
+        failure {{
+            slackSend channel: '{inputs['Slack Channel']}', color: COLOR_MAP['FAILURE'], message: "FAILURE: ${{JOB_NAME}} Build failed"
+        }}
+    }}
+}}
+"""
 
-    submit_button = tk.Button(pipeline_window, text="Submit", command=submit)
-    submit_button.grid(row=9, column=1)
+    # If it's a production pipeline, add a confirmation step before deployment
+    if inputs["Is Production"] == "yes":
+        pipeline_template = pipeline_template.replace("stage('Deploy') {{", "stage('Deploy') {{\ninput message: 'Do you want to deploy?', ok: 'Deploy'")
 
-# Function to handle backend pipeline inputs
-def backend_pipeline():
-    def submit():
-        pipeline_name = entry_pipeline_name.get()
-        repository_url = entry_repository_url.get()
-        default_branch = entry_default_branch.get()
-        credentials_id = entry_credentials_id.get()
-        slack_channel = entry_slack_channel.get()
-        build_command_1 = entry_build_command_1.get()
-        build_command_2 = entry_build_command_2.get()
-        image_name = entry_image_name.get()
-        account_id = entry_account_id.get()
-        region = entry_region.get()
-        cluster_name = entry_cluster_name.get()
-        service_name = entry_service_name.get()
-        task_name = entry_task_name.get()
-        task_definition_file_name = entry_task_definition_file_name.get()
+    # Write to a file
+    with open(f"{pipeline_name}_frontend_pipeline.groovy", "w") as file:
+        file.write(pipeline_template)
 
-        run_backend_script(pipeline_name, repository_url, default_branch, credentials_id, slack_channel, build_command_1, build_command_2, image_name, account_id, region, cluster_name, service_name, task_name, task_definition_file_name)
-        pipeline_window.destroy()
+    messagebox.showinfo("Success", f"Frontend pipeline '{pipeline_name}' generated successfully!")
 
-    pipeline_window = tk.Toplevel(root)
-    pipeline_window.title("Backend Pipeline")
+# Function to actually generate the backend pipeline script after confirmation
+def generate_backend_pipeline_script(pipeline_name, inputs):
+    pipeline_template = f"""
+import groovy.json.JsonOutput
 
-    # Input fields for backend pipeline
-    tk.Label(pipeline_window, text="Pipeline Name:").grid(row=0, column=0)
-    entry_pipeline_name = tk.Entry(pipeline_window)
-    entry_pipeline_name.grid(row=0, column=1)
+def COLOR_MAP = [
+    'SUCCESS': 'good',
+    'ALERT': 'warning',
+    'FAILURE': 'danger'
+]
 
-    tk.Label(pipeline_window, text="Repository URL:").grid(row=1, column=0)
-    entry_repository_url = tk.Entry(pipeline_window)
-    entry_repository_url.grid(row=1, column=1)
+// Function to get the user who triggered the build
+def getBuildUser() {{
+    def userCause = currentBuild.rawBuild.getCause(Cause.UserIdCause)
+    return userCause ? userCause.getUserId() : "Automated/Unknown"
+}}
 
-    tk.Label(pipeline_window, text="Default Branch:").grid(row=2, column=0)
-    entry_default_branch = tk.Entry(pipeline_window)
-    entry_default_branch.grid(row=2, column=1)
+pipeline {{
+    agent any
 
-    tk.Label(pipeline_window, text="Credentials ID:").grid(row=3, column=0)
-    entry_credentials_id = tk.Entry(pipeline_window)
-    entry_credentials_id.grid(row=3, column=1)
+    environment {{
+        ACCOUNT_ID = '{inputs['Account ID']}'
+        BUILD_USER = ''
+    }}
 
-    tk.Label(pipeline_window, text="Slack Channel:").grid(row=4, column=0)
-    entry_slack_channel = tk.Entry(pipeline_window)
-    entry_slack_channel.grid(row=4, column=1)
+    parameters {{
+        gitParameter branchFilter: 'origin/(.*)', defaultValue: '{inputs['Default Branch']}', name: 'BRANCH', type: 'PT_BRANCH'
+    }}
 
-    tk.Label(pipeline_window, text="Build Command 1:").grid(row=5, column=0)
-    entry_build_command_1 = tk.Entry(pipeline_window)
-    entry_build_command_1.grid(row=5, column=1)
+    stages {{
+        stage('Initialise') {{
+            steps {{
+                script {{
+                    BUILD_USER = getBuildUser()
+                }}
+                slackSend channel: '{inputs['Slack Channel']}',
+                          color: 'warning',
+                          message: "${{JOB_NAME}} API Build Initiated by ${{BUILD_USER}}"
+            }}
+        }}
 
-    tk.Label(pipeline_window, text="Build Command 2:").grid(row=6, column=0)
-    entry_build_command_2 = tk.Entry(pipeline_window)
-    entry_build_command_2.grid(row=6, column=1)
+        stage('Clone') {{
+            steps {{
+                git branch: "${{params.BRANCH}}", credentialsId: '{inputs['Credentials ID']}', url: '{inputs['Repository URL']}'
+            }}
+        }}
 
-    tk.Label(pipeline_window, text="Docker Image Name:").grid(row=7, column=0)
-    entry_image_name = tk.Entry(pipeline_window)
-    entry_image_name.grid(row=7, column=1)
+        stage('Build') {{
+            steps {{
+                sh '{inputs['Build Command 1']}'
+                sh '{inputs['Build Command 2']}'
+            }}
+        }}
 
-    tk.Label(pipeline_window, text="Account ID:").grid(row=8, column=0)
-    entry_account_id = tk.Entry(pipeline_window)
-    entry_account_id.grid(row=8, column=1)
+        stage('Publish') {{
+            steps {{
+                sh 'aws ecr get-login-password --region {inputs['Region']} | docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.{inputs['Region']}.amazonaws.com'
+                sh 'docker tag {inputs['Docker Image Name']}:$BUILD_NUMBER $ACCOUNT_ID.dkr.ecr.{inputs['Region']}.amazonaws.com/{inputs['Docker Image Name']}:$BUILD_NUMBER'
+                sh 'docker push $ACCOUNT_ID.dkr.ecr.{inputs['Region']}.amazonaws.com/{inputs['Docker Image Name']}:$BUILD_NUMBER'
+            }}
+        }}
 
-    tk.Label(pipeline_window, text="Region:").grid(row=9, column=0)
-    entry_region = tk.Entry(pipeline_window)
-    entry_region.grid(row=9, column=1)
+        stage('Deploy') {{
+            steps {{
+                sh '''
+                    cluster="{inputs['ECS Cluster Name']}"
+                    service_name="{inputs['ECS Service Name']}"
+                    TASK="{inputs['Task Name']}"
+                    ECR_IMAGE="$ACCOUNT_ID.dkr.ecr.{inputs['Region']}.amazonaws.com/{inputs['Task Name']}:$BUILD_NUMBER"
+                    
+                    sed -i "s|:ECR_IMAGE|${{ECR_IMAGE}}|g" ./infrastructure/{inputs['Task Definition File']}.json
+                    
+                    task_revision=$(aws ecs register-task-definition --cli-input-json file://infrastructure/{inputs['Task Definition File']}.json --region {inputs['Region']} --query 'taskDefinition.revision')
+                    aws ecs update-service --cluster $cluster --service $service_name --region {inputs['Region']} --task-definition {inputs['Task Name']}:$task_revision
+                '''
+            }}
+        }}
+    }}
 
-    tk.Label(pipeline_window, text="Cluster Name:").grid(row=10, column=0)
-    entry_cluster_name = tk.Entry(pipeline_window)
-    entry_cluster_name.grid(row=10, column=1)
+    post {{
+        success {{
+            slackSend channel: '{inputs['Slack Channel']}', color: COLOR_MAP['SUCCESS'], message: "SUCCESS: ${{JOB_NAME}} API Build succeeded"
+        }}
+        failure {{
+            slackSend channel: '{inputs['Slack Channel']}', color: COLOR_MAP['FAILURE'], message: "FAILURE: ${{JOB_NAME}} API Build failed"
+        }}
+    }}
+}}
+"""
 
-    tk.Label(pipeline_window, text="Service Name:").grid(row=11, column=0)
-    entry_service_name = tk.Entry(pipeline_window)
-    entry_service_name.grid(row=11, column=1)
+    # If it's a production pipeline, add a confirmation step before deployment
+    if inputs["Is Production"] == "yes":
+        pipeline_template = pipeline_template.replace("stage('Deploy') {{", "stage('Deploy') {{\ninput message: 'Do you want to deploy?', ok: 'Deploy'")
 
-    tk.Label(pipeline_window, text="Task Name:").grid(row=12, column=0)
-    entry_task_name = tk.Entry(pipeline_window)
-    entry_task_name.grid(row=12, column=1)
+    # Write to a file
+    with open(f"{pipeline_name}_backend_pipeline.groovy", "w") as file:
+        file.write(pipeline_template)
 
-    tk.Label(pipeline_window, text="Task Definition File Name:").grid(row=13, column=0)
-    entry_task_definition_file_name = tk.Entry(pipeline_window)
-    entry_task_definition_file_name.grid(row=13, column=1)
+    messagebox.showinfo("Success", f"Backend pipeline '{pipeline_name}' generated successfully!")
 
-    submit_button = tk.Button(pipeline_window, text="Submit", command=submit)
-    submit_button.grid(row=14, column=1)
-
-# Main window
+# Set up the GUI window
 root = tk.Tk()
-root.title("Pipeline Generator")
+root.title("Jenkins Pipeline Generator")
 
-# Buttons to select the pipeline type
-frontend_button = tk.Button(root, text="Frontend Pipeline", command=frontend_pipeline)
-frontend_button.pack()
+# Create buttons for frontend and backend pipeline generation
+frontend_button = tk.Button(root, text="Generate Frontend Pipeline", command=generate_frontend_pipeline, width=40)
+backend_button = tk.Button(root, text="Generate Backend Pipeline", command=generate_backend_pipeline, width=40)
 
-backend_button = tk.Button(root, text="Backend Pipeline", command=backend_pipeline)
-backend_button.pack()
+# Place buttons in the window
+frontend_button.pack(pady=20)
+backend_button.pack(pady=20)
 
-# Start the GUI event loop
+# Start the GUI loop
 root.mainloop()
